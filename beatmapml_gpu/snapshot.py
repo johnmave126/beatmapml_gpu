@@ -26,9 +26,8 @@ def make_snapshots(beatmap: Beatmap,
                                           target_width,
                                           capture_rate)
     processor = SnapshotThread(beatmap, target_width, capture_rate, result)
-    # processor.start()
-    # processor.join()
-    processor.run()
+    processor.start()
+    processor.join()
     return result
 
 
@@ -54,7 +53,7 @@ class SnapshotThread(threading.Thread):
 
         gl_backend.equip_circles(self._hitcircles)
         self.make_snapshots(gl_backend)
-        # gl_backend.destroy()
+        gl_backend.destroy()
 
     def make_snapshots(self, gl_backend):
         tick = 0

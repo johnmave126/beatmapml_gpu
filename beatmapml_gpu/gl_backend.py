@@ -25,7 +25,7 @@ class GLBackend():
                       GLUT_ACTION_GLUTMAINLOOP_RETURNS)
         glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA)
         glutCreateWindow(b"OpenGL Offscreen")
-        # glutHideWindow()
+        glutHideWindow()
         glShadeModel(GL_SMOOTH)
         glDisable(GL_DEPTH_TEST)
         glDisable(GL_ALPHA_TEST)
@@ -89,10 +89,10 @@ class GLBackend():
         glUniform1f(radius_uniform, self._cs)
         osu2canvas_uniform = glGetUniformLocation(
             self._disk_program, 'osuToCanvas')
-        glUniformMatrix4fv(osu2canvas_uniform, 1, False, self._osu_to_canvas)
+        glUniformMatrix4fv(osu2canvas_uniform, 1, True, self._osu_to_canvas)
         projection_uniform = glGetUniformLocation(
             self._disk_program, 'projection')
-        glUniformMatrix4fv(projection_uniform, 1, False, self._projection)
+        glUniformMatrix4fv(projection_uniform, 1, True, self._projection)
 
     def init_avg_shader(self):
         vertexID = self.compileShader(AVG_VERTEX_SHADER,
@@ -221,4 +221,5 @@ class GLBackend():
                                                 self._canvas_size.h,
                                                 GL_RED, GL_FLOAT),
                                    dtype=np.float32)
-        return raw_buffer.reshape(self._canvas_size)
+        return raw_buffer.reshape((self._canvas_size.h,
+                                   self._canvas_size.w)).transpose()

@@ -92,17 +92,19 @@ AVG_FRAGMENT_SHADER = """#version 400
 // Texture coordinate of the pixel
 in vec2 texCoord;
 // Average progress of the pixel
-out vec3 color;
+out float color;
 
 uniform sampler2D avgSampler;
 
 void main() {
     vec4 sum = texture2D(avgSampler, texCoord);
-    if (sum.y > 0) {
-        color = vec3(sum.x / sum.y);
+    /*
+    if (sum.y > 0.0f) {
+        color = sum.x / sum.y;
     }
     else {
-        color = vec3(0.0f, 0.0f, 0.0f);
-    }
+        color = 0.0f;
+    }*/
+    color = sum.x;
 }
 """
