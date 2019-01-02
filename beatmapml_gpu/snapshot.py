@@ -46,14 +46,13 @@ class SnapshotThread(threading.Thread):
 
         self._hitcircles = [
             o for o in self._beatmap.hit_objects if isinstance(o, Circle)]
-        self._hitcircles = sorted(
-            self._hitcircles, key=lambda circle: circle.time)
         for circle in self._hitcircles:
             circle.time_ms = circle.time.total_seconds() * 1000
+        self._hitcircles = sorted(
+            self._hitcircles, key=lambda circle: circle.time_ms)
 
         gl_backend.equip_circles(self._hitcircles)
         self.make_snapshots(gl_backend)
-        gl_backend.destroy()
 
     def make_snapshots(self, gl_backend):
         tick = 0

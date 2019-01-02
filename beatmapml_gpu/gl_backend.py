@@ -30,6 +30,9 @@ class GLBackend():
         glDisable(GL_DEPTH_TEST)
         glDisable(GL_ALPHA_TEST)
         glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE)
+        glEnable(GL_BLEND)
+        glBlendEquation(GL_FUNC_ADD)
+        glBlendFunc(GL_ONE, GL_ONE)
 
         self.init_framebuffer()
 
@@ -43,11 +46,8 @@ class GLBackend():
         glBindBuffer(GL_ARRAY_BUFFER, self._quad_vboid)
         glBufferData(GL_ARRAY_BUFFER, quad_vbo.nbytes,
                      quad_vbo, GL_STATIC_DRAW)
+        self._quad_vaoid = glGenVertexArrays(1)
         self.init_shaders()
-
-    def destroy(self):
-        glutDestroyWindow(glutGetWindow())
-        glutMainLoop()
 
     def init_shaders(self):
         self.init_disk_shader()
@@ -115,9 +115,14 @@ class GLBackend():
         glDeleteShader(fragmentID)
         glUseProgram(self._avg_program)
         glBindBuffer(GL_ARRAY_BUFFER, self._quad_vboid)
+        glBindVertexArray(self._quad_vaoid)
 
-        self._avg_position_attrib = glGetAttribLocation(
+        avg_position_attrib = glGetAttribLocation(
             self._avg_program, 'position')
+        glEnableVertexAttribArray(avg_position_attrib)
+        glVertexAttribPointer(avg_position_attrib,
+                              2, GL_FLOAT, GL_FALSE, 0, None)
+
         self._avg_sampler_uniform = glGetUniformLocation(
             self._avg_program, 'avgSampler')
 
@@ -144,9 +149,6 @@ class GLBackend():
         glDrawBuffers(draw_buffer)
         if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
             raise RuntimeError("Cannot initiate framebuffer as texture")
-        glEnablei(GL_BLEND, self._framebuffer)
-        glBlendEquationi(self._framebuffer, GL_FUNC_ADD)
-        glBlendFunci(self._framebuffer, GL_ONE, GL_ONE)
 
     def init_matrix(self):
         (l, t, r, b) = self._field
@@ -169,10 +171,20 @@ class GLBackend():
         glBindBuffer(GL_ARRAY_BUFFER, self._circle_vboid)
         glBufferData(GL_ARRAY_BUFFER, vbo.nbytes, vbo, GL_STATIC_DRAW)
 
-        self._disk_position_attrib = glGetAttribLocation(
+        self._circle_vaoid = glGenVertexArrays(1)
+        glBindVertexArray(self._circle_vaoid)
+
+        disk_position_attrib = glGetAttribLocation(
             self._disk_program, 'position')
-        self._disk_activation_attrib = glGetAttribLocation(
+        disk_activation_attrib = glGetAttribLocation(
             self._disk_program, 'activationTime')
+
+        glEnableVertexAttribArray(disk_position_attrib)
+        glEnableVertexAttribArray(disk_activation_attrib)
+        glVertexAttribPointer(disk_position_attrib,
+                              2, GL_FLOAT, GL_FALSE, 12, None)
+        glVertexAttribPointer(disk_activation_attrib,
+                              1, GL_FLOAT, GL_FALSE, 12, ctypes.c_void_p(8))
 
     def setup(self):
         glBindFramebuffer(GL_FRAMEBUFFER, self._framebuffer)
@@ -182,19 +194,10 @@ class GLBackend():
     def render_circles(self, tick, start, end):
         glUseProgram(self._disk_program)
         glBindBuffer(GL_ARRAY_BUFFER, self._circle_vboid)
-
-        glEnableVertexAttribArray(self._disk_position_attrib)
-        glEnableVertexAttribArray(self._disk_activation_attrib)
-        glVertexAttribPointer(self._disk_position_attrib,
-                              2, GL_FLOAT, GL_FALSE, 0, None)
-        glVertexAttribPointer(self._disk_activation_attrib,
-                              1, GL_FLOAT, GL_FALSE, 0, ctypes.c_void_p(8))
+        glBindVertexArray(self._circle_vaoid)
 
         glUniform1f(self._disk_tick_uniform, tick)
         glDrawArrays(GL_POINTS, start, end - start)
-
-        glDisableVertexAttribArray(self._disk_position_attrib)
-        glDisableVertexAttribArray(self._disk_activation_attrib)
 
     def calc_avg(self):
         glFinish()
@@ -203,17 +206,13 @@ class GLBackend():
         glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(self._avg_program)
         glBindBuffer(GL_ARRAY_BUFFER, self._quad_vboid)
-
-        glEnableVertexAttribArray(self._avg_position_attrib)
-        glVertexAttribPointer(self._avg_position_attrib,
-                              2, GL_FLOAT, GL_FALSE, 0, None)
+        glBindVertexArray(self._quad_vaoid)
 
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, self._texture)
         glUniform1i(self._avg_sampler_uniform, 0)
 
         glDrawArrays(GL_TRIANGLES, 0, 6)
-        glDisableVertexAttribArray(self._avg_position_attrib)
         glFinish()
 
         raw_buffer = np.frombuffer(glReadPixels(0, 0,

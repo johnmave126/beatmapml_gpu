@@ -68,8 +68,8 @@ in vec2 texCoord;
 layout (location = 0) out vec2 color;
 
 void main() {
-    float pct = step(dot(texCoord, texCoord), 1.0f) * progressF;
-    color = vec2(pct, 1.0f);
+    float pct = step(dot(texCoord, texCoord), 1.0f);
+    color = vec2(pct * progressF, pct);
 }
 """
 
@@ -98,13 +98,11 @@ uniform sampler2D avgSampler;
 
 void main() {
     vec4 sum = texture2D(avgSampler, texCoord);
-    /*
     if (sum.y > 0.0f) {
         color = sum.x / sum.y;
     }
     else {
         color = 0.0f;
-    }*/
-    color = sum.x;
+    }
 }
 """
