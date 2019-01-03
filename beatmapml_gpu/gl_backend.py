@@ -152,15 +152,15 @@ class GLBackend():
 
     def init_matrix(self):
         (l, t, r, b) = self._field
-        self._osu_to_canvas = np.matrix([[(r - l) / MAX_PLAYFIELD[0], 0, 0, l],
-                                         [0, (b - t) / MAX_PLAYFIELD[1], 0, t],
-                                         [0, 0, 1, 0],
-                                         [0, 0, 0, 1]])
+        self._osu_to_canvas = np.array([[(r - l) / MAX_PLAYFIELD[0], 0, 0, l],
+                                        [0, (b - t) / MAX_PLAYFIELD[1], 0, t],
+                                        [0, 0, 1, 0],
+                                        [0, 0, 0, 1]], dtype=np.float32)
         (w, h) = self._canvas_size
-        self._projection = np.matrix([[2 / w, 0, 0, -1],
-                                      [0, -2 / h, 0, 1],
-                                      [0, 0, 1, 0],
-                                      [0, 0, 0, 1]])
+        self._projection = np.array([[2 / w, 0, 0, -1],
+                                     [0, -2 / h, 0, 1],
+                                     [0, 0, 1, 0],
+                                     [0, 0, 0, 1]], dtype=np.float32)
 
     def equip_circles(self, hitcircles):
         vbo = np.array([[c.position.x,
@@ -215,10 +215,12 @@ class GLBackend():
         glDrawArrays(GL_TRIANGLES, 0, 6)
         glFinish()
 
-        raw_buffer = np.frombuffer(glReadPixels(0, 0,
-                                                self._canvas_size.w,
-                                                self._canvas_size.h,
-                                                GL_RED, GL_FLOAT),
-                                   dtype=np.float32)
-        return raw_buffer.reshape((self._canvas_size.h,
-                                   self._canvas_size.w)).transpose()
+        return self.read_pixels()
+
+    def read_pixels(self):
+        buf = glReadPixels(0, 0,
+                           self._canvas_size.w,
+                           self._canvas_size.h,
+                           GL_RED, GL_FLOAT)
+        return buf.reshape((self._canvas_size.h,
+                            self._canvas_size.w)).transpose()
