@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='beatmapml_gpu',
-    version='0.1.1',
+    version='0.1.2',
     description='Utilities for osu! beatmap in machine learning, GPU accelerated',
     author='Youmu Chan',
     author_email='johnmave126@gmail.com',

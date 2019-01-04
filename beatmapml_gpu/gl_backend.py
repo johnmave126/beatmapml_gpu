@@ -56,13 +56,13 @@ class GLBackend():
         egl.eglInitialize(self._display, major, minor)
 
         num_configs = ctypes.c_long()
-        config = EGLConfig()
+        config = (egl.EGLConfig * 2)()
         attributes = arrays.GLintArray.asArray(DESIRED_ATTRIBUTES)
-        egl.eglChooseConfig(self._display, attributes, config, 1, num_configs)
+        egl.eglChooseConfig(self._display, attributes, config, 2, num_configs)
         egl.eglBindAPI(egl.EGL_OPENGL_API)
 
         ctx = egl.eglCreateContext(
-            self._display, config, egl.EGL_NO_CONTEXT, None)
+            self._display, config[0], egl.EGL_NO_CONTEXT, None)
         egl.eglMakeCurrent(self._display, egl.EGL_NO_SURFACE,
                            egl.EGL_NO_SURFACE, ctx)
 
