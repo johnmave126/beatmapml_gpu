@@ -74,7 +74,6 @@ class GLBackend():
     def init_gl(self):
         glShadeModel(GL_SMOOTH)
         glDisable(GL_DEPTH_TEST)
-        glDisable(GL_ALPHA_TEST)
         glClampColor(GL_CLAMP_READ_COLOR, GL_FALSE)
         glEnable(GL_BLEND)
         glBlendEquation(GL_FUNC_ADD)
