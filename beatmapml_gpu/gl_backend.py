@@ -1,5 +1,4 @@
 from OpenGL.GL import *
-from OpenGL.GLU import *
 from OpenGL import arrays
 from slider.mod import circle_radius
 import numpy as np
@@ -61,8 +60,13 @@ class GLBackend():
         egl.eglChooseConfig(self._display, attributes, config, 2, num_configs)
         egl.eglBindAPI(egl.EGL_OPENGL_API)
 
+        OPENGL_ATTRIBUTES = [
+            egl.EGL_CONTEXT_MAJOR_VERSION, 4,
+            egl.EGL_NONE
+        ]
+        opengl_attributes = arrays.GLintArray.asArray(OPENGL_ATTRIBUTES)
         ctx = egl.eglCreateContext(
-            self._display, config[0], egl.EGL_NO_CONTEXT, None)
+            self._display, config[0], egl.EGL_NO_CONTEXT, opengl_attributes)
         egl.eglMakeCurrent(self._display, egl.EGL_NO_SURFACE,
                            egl.EGL_NO_SURFACE, ctx)
 

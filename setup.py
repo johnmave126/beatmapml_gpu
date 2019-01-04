@@ -4,8 +4,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='beatmapml_gpu',
-    version='0.1.2',
-    description='Utilities for osu! beatmap in machine learning, GPU accelerated',
+    version='0.1.3',
+    description=('Utilities for osu! beatmap in machine '
+                 'learning, GPU accelerated'),
     author='Youmu Chan',
     author_email='johnmave126@gmail.com',
     packages=find_packages(),
@@ -23,6 +24,7 @@ setup(
         'numpy',
         'pyopengl',
         'pyopengl_accelerate',
-        'slider @ git+https://github.com/llllllllll/slider.git@master#egg=slider-0.1.0'
+        ('slider @ git+https://github.com/llllllllll/slider.git@'
+         'master#egg=slider-0.1.0')
     ]
 )
