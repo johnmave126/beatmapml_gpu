@@ -1,3 +1,4 @@
+from .env import USE_EGL
 from OpenGL.GL import *
 from OpenGL import arrays
 from slider.mod import circle_radius
@@ -6,6 +7,9 @@ import ctypes
 
 from .parameter_convert import calc_dimension, MAX_PLAYFIELD
 from .shaders import *
+
+if USE_EGL:
+    from OpenGL.EGL import *
 
 
 class GLBackend():
@@ -19,17 +23,9 @@ class GLBackend():
         self.init_gl()
 
     def init_context(self):
-        import OpenGL
-        platform = OpenGL.platform.PLATFORM
-        try:
-            import OpenGL.platform.egl
-            OpenGL.platform.PLATFORM = OpenGL.platform.egl.EGLPlatform()
-            import OpenGL.EGL as egl
-            self._use_egl = True
-            self.init_egl(egl)
-        except ImportError as err:
-            OpenGL.platform.PLATFORM = platform
-            self._use_egl = False
+        if USE_EGL:
+            self.init_egl()
+        else:
             self.init_glut()
 
     def init_glut(self):
@@ -44,34 +40,35 @@ class GLBackend():
 
     def init_egl(self, egl):
         DESIRED_ATTRIBUTES = [
-            egl.EGL_SURFACE_TYPE, egl.EGL_PBUFFER_BIT,
-            egl.EGL_RENDERABLE_TYPE, egl.EGL_OPENGL_BIT,
-            egl.EGL_CONFIG_CAVEAT, egl.EGL_NONE,
-            egl.EGL_NONE
+            EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+            EGL_CONFIG_CAVEAT, EGL_NONE,
+            EGL_NONE
         ]
 
         major, minor = ctypes.c_long(), ctypes.c_long()
-        self._display = egl.eglGetDisplay(egl.EGL_DEFAULT_DISPLAY)
-        egl.eglInitialize(self._display, major, minor)
+        self._display = eglGetDisplay(EGL_DEFAULT_DISPLAY)
+        eglInitialize(self._display, major, minor)
 
         num_configs = ctypes.c_long()
-        config = (egl.EGLConfig * 2)()
+        config = (EGLConfig * 2)()
         attributes = arrays.GLintArray.asArray(DESIRED_ATTRIBUTES)
-        egl.eglChooseConfig(self._display, attributes, config, 2, num_configs)
-        egl.eglBindAPI(egl.EGL_OPENGL_API)
+        eglChooseConfig(self._display, attributes, config, 2, num_configs)
+        eglBindAPI(EGL_OPENGL_API)
 
         OPENGL_ATTRIBUTES = [
-            egl.EGL_CONTEXT_MAJOR_VERSION, 4,
-            egl.EGL_NONE
+            EGL_CONTEXT_MAJOR_VERSION, 4,
+            EGL_CONTEXT_MINOR_VERSION, 5,
+            EGL_NONE
         ]
         opengl_attributes = arrays.GLintArray.asArray(OPENGL_ATTRIBUTES)
-        ctx = egl.eglCreateContext(
-            self._display, config[0], egl.EGL_NO_CONTEXT, opengl_attributes)
-        egl.eglMakeCurrent(self._display, egl.EGL_NO_SURFACE,
-                           egl.EGL_NO_SURFACE, ctx)
+        ctx = eglCreateContext(
+            self._display, config[0], EGL_NO_CONTEXT, opengl_attributes)
+        eglMakeCurrent(self._display, EGL_NO_SURFACE,
+                       EGL_NO_SURFACE, ctx)
 
     def destroy(self):
-        if self._use_egl:
+        if USE_EGL:
             eglTerminate(self._display)
 
     def init_gl(self):
