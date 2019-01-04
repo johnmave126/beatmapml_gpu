@@ -38,7 +38,7 @@ class GLBackend():
         glut.glutCreateWindow(b"OpenGL Offscreen")
         glut.glutHideWindow()
 
-    def init_egl(self, egl):
+    def init_egl(self):
         DESIRED_ATTRIBUTES = [
             EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
             EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
