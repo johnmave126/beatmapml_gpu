@@ -53,6 +53,7 @@ class SnapshotThread(threading.Thread):
 
         gl_backend.equip_circles(self._hitcircles)
         self.make_snapshots(gl_backend)
+        gl_backend.destroy()
 
     def make_snapshots(self, gl_backend):
         tick = 0

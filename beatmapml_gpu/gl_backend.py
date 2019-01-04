@@ -1,6 +1,6 @@
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from OpenGL.GLUT import *
+from OpenGL import arrays
 from slider.mod import circle_radius
 import numpy as np
 import ctypes
@@ -16,16 +16,61 @@ class GLBackend():
         self._lookahead = lookahead
 
         self.init_matrix()
+        self.init_context()
         self.init_gl()
 
+    def init_context(self):
+        import OpenGL
+        platform = OpenGL.platform.PLATFORM
+        try:
+            import OpenGL.platform.egl
+            OpenGL.platform.PLATFORM = OpenGL.platform.egl.EGLPlatform()
+            import OpenGL.EGL as egl
+            self._use_egl = True
+            self.init_egl(egl)
+        except ImportError as err:
+            OpenGL.platform.PLATFORM = platform
+            self._use_egl = False
+            self.init_glut()
+
+    def init_glut(self):
+        import OpenGL.GLUT as glut
+        glut.glutInit([''])
+        glut.glutInitWindowSize(1, 1)
+        glut.glutSetOption(glut.GLUT_ACTION_ON_WINDOW_CLOSE,
+                           glut.GLUT_ACTION_GLUTMAINLOOP_RETURNS)
+        glut.glutInitDisplayMode(glut.GLUT_SINGLE | glut.GLUT_RGBA)
+        glut.glutCreateWindow(b"OpenGL Offscreen")
+        glut.glutHideWindow()
+
+    def init_egl(self, egl):
+        DESIRED_ATTRIBUTES = [
+            egl.EGL_SURFACE_TYPE, egl.EGL_PBUFFER_BIT,
+            egl.EGL_RENDERABLE_TYPE, egl.EGL_OPENGL_BIT,
+            egl.EGL_CONFIG_CAVEAT, egl.EGL_NONE,
+            egl.EGL_NONE
+        ]
+
+        major, minor = ctypes.c_long(), ctypes.c_long()
+        self._display = egl.eglGetDisplay(egl.EGL_DEFAULT_DISPLAY)
+        egl.eglInitialize(self._display, major, minor)
+
+        num_configs = ctypes.c_long()
+        config = EGLConfig()
+        attributes = arrays.GLintArray.asArray(DESIRED_ATTRIBUTES)
+        egl.eglChooseConfig(self._display, attributes, config, 1, num_configs)
+        egl.eglBindAPI(egl.EGL_OPENGL_API)
+
+        ctx = egl.eglCreateContext(
+            self._display, config, egl.EGL_NO_CONTEXT, None)
+        egl.eglMakeCurrent(self._display, egl.EGL_NO_SURFACE,
+                           egl.EGL_NO_SURFACE, ctx)
+
+    def destroy(self):
+        if self._use_egl:
+            eglTerminate(self._display)
+
     def init_gl(self):
-        glutInit([''])
-        glutInitWindowSize(*self._canvas_size)
-        glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE,
-                      GLUT_ACTION_GLUTMAINLOOP_RETURNS)
-        glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA)
-        glutCreateWindow(b"OpenGL Offscreen")
-        glutHideWindow()
         glShadeModel(GL_SMOOTH)
         glDisable(GL_DEPTH_TEST)
         glDisable(GL_ALPHA_TEST)
@@ -150,6 +195,19 @@ class GLBackend():
         if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
             raise RuntimeError("Cannot initiate framebuffer as texture")
 
+        self._result_framebuffer = glGenFramebuffers(1)
+        glBindFramebuffer(GL_FRAMEBUFFER, self._result_framebuffer)
+        result_texture = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, result_texture)
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32F,
+                       self._canvas_size.w, self._canvas_size.h)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, result_texture, 0)
+        draw_buffer = np.array([GL_COLOR_ATTACHMENT0], dtype=np.uint32)
+        glDrawBuffers(draw_buffer)
+        if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
+            raise RuntimeError("Cannot initiate framebuffer as texture")
+
     def init_matrix(self):
         (l, t, r, b) = self._field
         self._osu_to_canvas = np.array([[(r - l) / MAX_PLAYFIELD[0], 0, 0, l],
@@ -201,7 +259,7 @@ class GLBackend():
 
     def calc_avg(self):
         glFinish()
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glBindFramebuffer(GL_FRAMEBUFFER, self._result_framebuffer)
         glViewport(0, 0, self._canvas_size.w, self._canvas_size.h)
         glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(self._avg_program)
