@@ -4,6 +4,7 @@ from OpenGL import arrays
 from slider.mod import circle_radius
 import numpy as np
 import ctypes
+import math
 
 from .parameter_convert import calc_dimension, MAX_PLAYFIELD
 from .shaders import *
@@ -91,11 +92,11 @@ class GLBackend():
         glBindBuffer(GL_ARRAY_BUFFER, self._quad_vboid)
         glBufferData(GL_ARRAY_BUFFER, quad_vbo.nbytes,
                      quad_vbo, GL_STATIC_DRAW)
-        self._quad_vaoid = glGenVertexArrays(1)
         self.init_shaders()
 
     def init_shaders(self):
         self.init_disk_shader()
+        self.init_slider_shader()
         self.init_avg_shader()
 
     def init_disk_shader(self):
@@ -139,6 +140,80 @@ class GLBackend():
             self._disk_program, 'projection')
         glUniformMatrix4fv(projection_uniform, 1, True, self._projection)
 
+    def init_slider_shader(self):
+        vertexID = self.compileShader(SLIDER_VERTEX_SHADER,
+                                      GL_VERTEX_SHADER)
+        geometryID = self.compileShader(SLIDER_GEOMETRY_SHADER,
+                                        GL_GEOMETRY_SHADER)
+        fragmentID = self.compileShader(SLIDER_FRAGMENT_SHADER,
+                                        GL_FRAGMENT_SHADER)
+        self._slider_program = glCreateProgram()
+        glAttachShader(self._slider_program, vertexID)
+        glAttachShader(self._slider_program, geometryID)
+        glAttachShader(self._slider_program, fragmentID)
+        glLinkProgram(self._slider_program)
+
+        if glGetProgramiv(self._slider_program, GL_LINK_STATUS) != GL_TRUE:
+            print(glGetProgramiv(self._slider_program, GL_LINK_STATUS))
+            raise RuntimeError(glGetProgramInfoLog(
+                self._slider_program).decode())
+
+        glDetachShader(self._slider_program, vertexID)
+        glDetachShader(self._slider_program, geometryID)
+        glDetachShader(self._slider_program, fragmentID)
+
+        glDeleteShader(vertexID)
+        glDeleteShader(geometryID)
+        glDeleteShader(fragmentID)
+
+        glUseProgram(self._slider_program)
+        lookahead_uniform = glGetUniformLocation(
+            self._slider_program, 'lookahead')
+        glUniform1f(lookahead_uniform, self._lookahead)
+        radius_uniform = glGetUniformLocation(
+            self._slider_program, 'radius')
+        glUniform1f(radius_uniform, self._cs)
+        osu2canvas_uniform = glGetUniformLocation(
+            self._slider_program, 'osuToCanvas')
+        glUniformMatrix4fv(osu2canvas_uniform, 1, True, self._osu_to_canvas)
+        projection_uniform = glGetUniformLocation(
+            self._slider_program, 'projection')
+        glUniformMatrix4fv(projection_uniform, 1, True, self._projection)
+
+        max_steps = min(50, math.floor(self._cs))
+        samples = np.linspace(0, math.pi, max_steps, dtype=np.float32)
+        rotate_cos = np.cos(samples)
+        rotate_sin = np.sin(samples)
+        rotate = np.empty((48, 2, 2), dtype=np.float32)
+        rotate[0:max_steps - 2, 0, 0] = rotate_cos[1:-1]
+        rotate[0:max_steps - 2, 1, 1] = rotate_cos[1:-1]
+        rotate[0:max_steps - 2, 0, 1] = -rotate_sin[1:-1]
+        rotate[0:max_steps - 2, 1, 0] = rotate_sin[1:-1]
+        rotate_uniform = glGetUniformLocation(
+            self._slider_program, 'rotate')
+        glUniformMatrix2fv(rotate_uniform, 48, True, rotate)
+
+        self._slider_tick_uniform = glGetUniformLocation(
+            self._slider_program, 'tick')
+        self._slider_activation_uniform = glGetUniformLocation(
+            self._slider_program, 'activationTime')
+        self._slider_total_time = glGetUniformLocation(
+            self._slider_program, 'totalTime')
+        self._slider_repeat = glGetUniformLocation(
+            self._slider_program, 'repeat')
+
+        self._slider_vaoid = glGenVertexArrays(1)
+        glBindVertexArray(self._slider_vaoid)
+
+        self._slider_position_attrib = glGetAttribLocation(
+            self._slider_program, 'position')
+        self._slider_cumLength_attrib = glGetAttribLocation(
+            self._slider_program, 'cumLength')
+
+        glEnableVertexAttribArray(self._slider_position_attrib)
+        glEnableVertexAttribArray(self._slider_cumLength_attrib)
+        glBindVertexArray(0)
+
     def init_avg_shader(self):
         vertexID = self.compileShader(AVG_VERTEX_SHADER,
                                       GL_VERTEX_SHADER)
@@ -158,21 +233,22 @@ class GLBackend():
 
         glDeleteShader(vertexID)
         glDeleteShader(fragmentID)
-        glUseProgram(self._avg_program)
-        glBindBuffer(GL_ARRAY_BUFFER, self._quad_vboid)
+        self._quad_vaoid = glGenVertexArrays(1)
         glBindVertexArray(self._quad_vaoid)
+        glBindBuffer(GL_ARRAY_BUFFER, self._quad_vboid)
 
         avg_position_attrib = glGetAttribLocation(
             self._avg_program, 'position')
         glEnableVertexAttribArray(avg_position_attrib)
         glVertexAttribPointer(avg_position_attrib,
                               2, GL_FLOAT, GL_FALSE, 0, None)
+        glBindVertexArray(0)
 
         self._avg_sampler_uniform = glGetUniformLocation(
             self._avg_program, 'avgSampler')
 
-    def compileShader(self, source, type):
-        shader = glCreateShader(type)
+    def compileShader(self, source, shader_type):
+        shader = glCreateShader(shader_type)
         glShaderSource(shader, source)
         glCompileShader(shader)
         if glGetShaderiv(shader, GL_COMPILE_STATUS) != GL_TRUE:
@@ -216,7 +292,7 @@ class GLBackend():
                                         [0, 0, 0, 1]], dtype=np.float32)
         (w, h) = self._canvas_size
         self._projection = np.array([[2 / w, 0, 0, -1],
-                                     [0, -2 / h, 0, 1],
+                                     [0, 2 / h, 0, -1],
                                      [0, 0, 1, 0],
                                      [0, 0, 0, 1]], dtype=np.float32)
 
@@ -226,11 +302,10 @@ class GLBackend():
                          c.time_ms]
                         for c in hitcircles], dtype=np.float32)
         self._circle_vboid = glGenBuffers(1)
-        glBindBuffer(GL_ARRAY_BUFFER, self._circle_vboid)
-        glBufferData(GL_ARRAY_BUFFER, vbo.nbytes, vbo, GL_STATIC_DRAW)
-
         self._circle_vaoid = glGenVertexArrays(1)
         glBindVertexArray(self._circle_vaoid)
+        glBindBuffer(GL_ARRAY_BUFFER, self._circle_vboid)
+        glBufferData(GL_ARRAY_BUFFER, vbo.nbytes, vbo, GL_STATIC_DRAW)
 
         disk_position_attrib = glGetAttribLocation(
             self._disk_program, 'position')
@@ -243,6 +318,21 @@ class GLBackend():
                               2, GL_FLOAT, GL_FALSE, 12, None)
         glVertexAttribPointer(disk_activation_attrib,
                               1, GL_FLOAT, GL_FALSE, 12, ctypes.c_void_p(8))
+        glBindVertexArray(0)
+
+    def equip_sliders(self, sliders):
+        vboids = (GLint * len(sliders))()
+        glGenBuffers(len(sliders), vboids)
+        vboids = np.array(vboids)
+        for i in range(len(sliders)):
+            slider = sliders[i]
+            slider.vboid = vboids[i]
+            vbo = slider.linearization
+            glBindBuffer(GL_ARRAY_BUFFER, slider.vboid)
+            glBufferData(GL_ARRAY_BUFFER, vbo.nbytes, vbo, GL_STATIC_DRAW)
+
+    def unequip_sliders(self, sliders):
+        glDeleteBuffers(len(sliders), [slider.vboid for slider in sliders])
 
     def setup(self):
         glBindFramebuffer(GL_FRAMEBUFFER, self._framebuffer)
@@ -257,13 +347,32 @@ class GLBackend():
         glUniform1f(self._disk_tick_uniform, tick)
         glDrawArrays(GL_POINTS, start, end - start)
 
+    def prepare_sliders(self, tick):
+        glUseProgram(self._slider_program)
+        glBindVertexArray(self._slider_vaoid)
+
+        glUniform1f(self._slider_tick_uniform, tick)
+
+    def render_slider(self, slider):
+        glUniform1f(self._slider_activation_uniform, slider.time_ms)
+        glUniform1f(self._slider_total_time, slider.total_time)
+        glUniform1i(self._slider_repeat, slider.repeat)
+        glBindBuffer(GL_ARRAY_BUFFER, slider.vboid)
+
+        glVertexAttribPointer(self._slider_position_attrib,
+                              2, GL_FLOAT, GL_FALSE, 12, None)
+        glVertexAttribPointer(self._slider_cumLength_attrib,
+                              1, GL_FLOAT, GL_FALSE, 12,
+                              ctypes.c_void_p(8))
+
+        glDrawArrays(GL_LINE_STRIP_ADJACENCY, 0, slider.linearization.shape[0])
+
     def calc_avg(self):
         glFinish()
         glBindFramebuffer(GL_FRAMEBUFFER, self._result_framebuffer)
         glViewport(0, 0, self._canvas_size.w, self._canvas_size.h)
         glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(self._avg_program)
-        glBindBuffer(GL_ARRAY_BUFFER, self._quad_vboid)
         glBindVertexArray(self._quad_vaoid)
 
         glActiveTexture(GL_TEXTURE0)

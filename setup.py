@@ -22,6 +22,7 @@ setup(
     url='https://github.com/johnmave126/beatmapml',
     install_requires=[
         'numpy',
+        'bezier',
         'pyopengl',
         'pyopengl_accelerate',
         ('slider @ git+https://github.com/llllllllll/slider.git@'
