@@ -5,7 +5,7 @@ import math
 import itertools
 from slider.curve import *
 
-BEZIER_TOLERANCE = 0.5
+BEZIER_TOLERANCE = 0.2
 
 
 def bezier_linearize_helper(curve, eps):
@@ -41,7 +41,7 @@ def perfect_at(curve, t):
 
 
 def perfect_linearize(curve):
-    num_points = math.ceil(curve.req_length / 2)
+    num_points = math.ceil(curve.req_length / 4)
     return perfect_at(curve, np.linspace(0, 1, num_points))
 
 

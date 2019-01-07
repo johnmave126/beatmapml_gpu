@@ -341,7 +341,6 @@ class GLBackend():
 
     def render_circles(self, tick, start, end):
         glUseProgram(self._disk_program)
-        glBindBuffer(GL_ARRAY_BUFFER, self._circle_vboid)
         glBindVertexArray(self._circle_vaoid)
 
         glUniform1f(self._disk_tick_uniform, tick)

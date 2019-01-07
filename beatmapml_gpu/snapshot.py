@@ -70,8 +70,6 @@ class SnapshotThread(threading.Thread):
         gl_backend.destroy()
 
     def make_snapshots(self, gl_backend):
-        tick = 0
-
         circle_start = 0
         circle_end = 0
 
@@ -82,6 +80,8 @@ class SnapshotThread(threading.Thread):
         num_slice = self._result.shape[0]
 
         for snapshot_idx in range(num_slice):
+            tick = snapshot_idx * self._interval
+
             circle_start, circle_end = self.update_circle_pool(
                 tick, circle_start, circle_end)
 
@@ -98,8 +98,6 @@ class SnapshotThread(threading.Thread):
                     for _, _, slider in slider_pool:
                         gl_backend.render_slider(slider)
                 self._result[snapshot_idx] = gl_backend.calc_avg()
-
-            tick += self._interval
 
     def update_circle_pool(self, tick, start, end):
         while (end < len(self._hitcircles) and

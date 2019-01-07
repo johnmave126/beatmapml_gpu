@@ -103,7 +103,7 @@ layout (lines_adjacency) in;
 layout (triangle_strip, max_vertices = 194) out;
 
 in float cumLengthG[];
-smooth out float cumLengthF;
+out float cumLengthF;
 
 vec4 toScreen(const in vec2 source) {
     return projection * osuToCanvas * vec4(source, 0.0f, 1.0f);
@@ -120,7 +120,7 @@ void emitJoint(const in vec2 endpoint, const in vec2 start, const in vec2 end,
     gl_Position = toScreen(endpoint + radius * start);
     EmitVertex();
 
-    float angle = acos(dot(start, end));
+    float angle = acos(clamp(dot(start, end), -1.0f, 1.0f));
     int pieces = int(radius * angle * PI_R);
 
     for(int i = 0; i < pieces - 2; i++) {
@@ -159,7 +159,7 @@ void calcJoint(const in vec2 leg1, const in vec2 leg2,
         leftWing = miterScale * miter;
         rightWing = -radius * leg2N;
         fanStart = -miter;
-        fanEnd = leg2N;
+        fanEnd = -leg2N;
     }
     else {
         leftWing = radius * leg2N;
@@ -175,10 +175,8 @@ void main() {
     vec2 fanStart, fanEnd;
     for(int i = 0; i < 3; i++) {
         d[i] = gl_in[i + 1].gl_Position.xy - gl_in[i].gl_Position.xy;
-        // Possible divide-by-zero but I don't care since
-        // the result is never used.
-        n[i] = normalize(vec2(-d[i].y, d[i].x));
     }
+    n[1] = normalize(vec2(-d[1].y, d[1].x));
     if(isColocate(d[0])) {
         left[0] = radius * n[1];
         right[0] = -radius * n[1];
@@ -186,6 +184,7 @@ void main() {
         fanEnd = -n[1];
     }
     else {
+        n[0] = normalize(vec2(-d[0].y, d[0].x));
         calcJoint(d[0], d[1], n[0], n[1],
                   left[0], right[0], fanStart, fanEnd);
     }
@@ -197,11 +196,11 @@ void main() {
         fanEnd = n[1];
     }
     else {
+        n[2] = normalize(vec2(-d[2].y, d[2].x));
         calcJoint(-d[2], -d[1], -n[2], -n[1],
                   right[1], left[1], fanStart, fanEnd);
     }
     emitJoint(gl_in[2].gl_Position.xy, fanStart, fanEnd, cumLengthG[2]);
-
     cumLengthF = cumLengthG[1];
     gl_Position = toScreen(gl_in[1].gl_Position.xy + right[0]);
     EmitVertex();
@@ -236,7 +235,7 @@ uniform int repeat;
 // Approach rate in ms
 uniform float lookahead;
 
-smooth in float cumLengthF;
+in float cumLengthF;
 // Shaded pixel color
 layout (location = 0) out vec2 color;
 
