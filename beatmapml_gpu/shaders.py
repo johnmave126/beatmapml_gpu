@@ -154,7 +154,8 @@ void calcJoint(const in vec2 leg1, const in vec2 leg2,
                out vec2 fanStart, out vec2 fanEnd) {
     vec2 miter = normalize(leg1N + leg2N);
     float miterScale = min(dot(leg1, leg1) / (abs(dot(leg1, miter)) + 1e-6f),
-                           radius / (dot(miter, leg1N) + 1e-6f));
+                           dot(leg2, leg2) / (abs(dot(leg2, miter)) + 1e-6f));
+    miterScale = min(miterScale, radius / (dot(miter, leg1N) + 1e-6f));
     if(cross2d(leg1, leg2) > 0) {
         // Slider bend to left
         leftWing = miterScale * miter;
