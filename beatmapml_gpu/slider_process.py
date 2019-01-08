@@ -17,6 +17,8 @@ def bezier_linearize_helper(curve, eps):
 
 
 def bezier_linearize(curve):
+    if len(curve.points) <= 2:
+        return curve.points
     points = np.array(curve.points, dtype=np.double)
     bezier_curve = bezier.Curve.from_nodes(points.T)
     return ([points[0]] +
