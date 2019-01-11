@@ -148,4 +148,4 @@ class SnapshotThread(threading.Thread):
                                       if isinstance(o, Slider) else o.time))
         num_slice = math.floor(
             end_time.time.total_seconds() * capture_rate) + 2
-        return np.zeros((num_slice, w, h))
+        return np.zeros((num_slice, w, h), dtype=np.float32)
