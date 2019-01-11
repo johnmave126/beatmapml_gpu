@@ -6,6 +6,10 @@ import itertools
 from slider.curve import *
 
 BEZIER_TOLERANCE = 0.2
+CATMULL_REFINEMENT = 20
+CATMULL_SAMPLES = np.linspace(0, 1, CATMULL_REFINEMENT, endpoint=False)
+CATMULL_SAMPLES_2 = CATMULL_SAMPLES * CATMULL_SAMPLES
+CATMULL_SAMPLES_3 = CATMULL_SAMPLES_2 * CATMULL_SAMPLES
 
 
 def bezier_linearize_helper(curve, eps):
@@ -57,6 +61,32 @@ def multibezier_linearize(curve):
                                   for c in curve._curves[1:])))
 
 
+def catmull_linearize(curve):
+    to_expand = np.array(curve.points[-2:])
+    expanded = to_expand[1] + to_expand[1] - to_expand[0]
+    raw_points = list(itertools.chain(
+        [curve.points[0]], curve.points, [expanded]))
+    points = np.array(raw_points, dtype=np.float32)
+    shape = (2, points.shape[0] - 3, 4)
+    strides = (points.itemsize, 2 * points.itemsize, 2 * points.itemsize)
+    catmull_pieces = np.lib.stride_tricks.as_strided(
+        points, shape=shape, strides=strides)
+    steps, idx = np.meshgrid(CATMULL_SAMPLES, np.arange(shape[1]))
+    result_grid = (0.5 *
+                   (2 * catmull_pieces[:, idx, 1] +
+                    steps * (catmull_pieces[:, idx, 2] -
+                             catmull_pieces[:, idx, 0]) +
+                    CATMULL_SAMPLES_2 * (2 * catmull_pieces[:, idx, 0] -
+                                         5 * catmull_pieces[:, idx, 1] +
+                                         4 * catmull_pieces[:, idx, 2] -
+                                         catmull_pieces[:, idx, 3]) +
+                    CATMULL_SAMPLES_3 * (-catmull_pieces[:, idx, 0] +
+                                         3 * catmull_pieces[:, idx, 1] -
+                                         3 * catmull_pieces[:, idx, 2] +
+                                         catmull_pieces[:, idx, 3])))
+    return result_grid.reshape((2, shape[1] * CATMULL_REFINEMENT)).T
+
+
 def linearize(curve, time_scale):
     if isinstance(curve, Bezier):
         points = np.array(bezier_linearize(curve), dtype=np.float32)
@@ -66,6 +96,8 @@ def linearize(curve, time_scale):
         points = linear_linearize(curve)
     elif isinstance(curve, MultiBezier):
         points = np.array(multibezier_linearize(curve), dtype=np.float32)
+    elif isinstance(curve, Catmull):
+        points = catmull_linearize(curve)
 
     vectors = np.diff(points, axis=0)
     output = np.empty((points.shape[0] + 2, 3), dtype=np.float32)
